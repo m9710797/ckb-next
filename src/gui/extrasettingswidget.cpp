@@ -4,6 +4,7 @@
 #include "mainwindow.h"
 #include "ckbsettings.h"
 #include "animdetailsdialog.h"
+#include "kbmanager.h"
 
 // KbLight
 static int lastSharedDimming = -2;
@@ -75,9 +76,19 @@ ExtraSettingsWidget::ExtraSettingsWidget(QWidget *parent) :
 
     ui->previewBox->setChecked(settings.value("DisablePreviewOnFocusLoss", true).toBool());
 
-#ifndef Q_OS_LINUX
-    ui->scrollWarningLabel->hide();
+#ifdef Q_OS_LINUX
+#ifdef USE_XCB_SCREENSAVER
+    ui->timerBox->setEnabled(true);
+    ui->timerBox->setChecked(settings.value("IdleTimerEnable", true).toBool());
+    ui->timerMinBox->setEnabled(ui->timerBox->isChecked());
+    ui->timerMinBox->setValue(settings.value("IdleTimerDuration", 5).toInt());
 #endif
+#else
+    ui->scrollWarningLabel->hide();
+    ui->timerBox->hide();
+    ui->timerMinBox->hide();
+#endif
+    KbManager::ckbDaemonVersion();
 }
 
 ExtraSettingsWidget::~ExtraSettingsWidget(){
@@ -169,4 +180,15 @@ void ExtraSettingsWidget::on_detailsBtn_clicked()
     AnimDetailsDialog* dlg = new AnimDetailsDialog(this);
     dlg->setAttribute(Qt::WA_DeleteOnClose, true);
     dlg->exec();
+}
+
+void ExtraSettingsWidget::on_timerBox_clicked(bool checked)
+{
+    ui->timerMinBox->setEnabled(checked);
+    CkbSettings::set("Program/IdleTimerEnable", checked);
+}
+
+void ExtraSettingsWidget::on_timerMinBox_editingFinished()
+{
+    CkbSettings::set("Program/IdleTimerDuration", ui->timerMinBox->value());
 }

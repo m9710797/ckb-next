@@ -1,4 +1,5 @@
 #include "kbmanager.h"
+#include "idletimer.h"
 
 #ifndef Q_OS_MACOS
 QString devpath = "/dev/input/ckb%1";
@@ -8,6 +9,7 @@ QString devpath = "/var/run/ckb%1";
 
 QString KbManager::_guiVersion, KbManager::_daemonVersion = DAEMON_UNAVAILABLE_STR;
 KbManager* KbManager::_kbManager = 0;
+QTimer* KbManager::_idleTimer = nullptr;
 
 void KbManager::init(QString guiVersion){
     _guiVersion = guiVersion;
@@ -29,6 +31,17 @@ KbManager::KbManager(QObject *parent) : QObject(parent){
     _eventTimer->setTimerType(Qt::PreciseTimer);
     _scanTimer = new QTimer(this);
     _scanTimer->start(1000);
+#ifdef Q_OS_LINUX
+    if(!_idleTimer){
+        // This won't go well if there are multiple instances of KbManager since the pointer is static.
+        // The rest of the code seems to only be able to handle only one instance too, so it should be fine.
+        _idleTimer = new QTimer(this);
+        connect(_idleTimer, &QTimer::timeout, this, &KbManager::idleTimerTick);
+        if(CkbSettings::get("Program/IdleTimerEnable", true).toBool()){
+            startIdleTimer(CkbSettings::get("Program/IdleTimerDuration", 5).toInt() * 60000);
+        }
+    }
+#endif
     connect(_scanTimer, SIGNAL(timeout()), this, SLOT(scanKeyboards()));
 
     // Scan for keyboards immediately so they show up as soon as the GUI appears.
@@ -43,6 +56,17 @@ void KbManager::fps(int framerate){
         timer->setInterval(1000 / framerate);
     else
         timer->start(1000 / framerate);
+}
+#include <QDebug>
+
+void KbManager::startIdleTimer(int duration)
+{
+    qDebug() << "Arming timer" << duration;
+    if(_idleTimer)
+        _idleTimer->start(duration);
+    else {
+        qDebug() << "It's a dud";
+    }
 }
 
 float KbManager::parseVersionString(QString version){
@@ -146,5 +170,25 @@ void KbManager::scanKeyboards(){
         connect(_eventTimer, SIGNAL(timeout()), kb, SLOT(frameUpdate()));
         connect(_scanTimer, SIGNAL(timeout()), kb, SLOT(autoSave()));
     }
+}
+
+void KbManager::idleTimerTick()
+{
+    // Get user idle time
+    int idle = IdleTimer::getIdleTime();
+#warning FIXME
+    int settingsidle = CkbSettings::get("Program/IdleTimerDuration", 5).toInt() * 60000;
+    int res = settingsidle - idle;
+    // Reschedule the timer if there's still time left
+    qDebug() << idle << settingsidle << res;
+    if(res > 0)
+        startIdleTimer(res);
+    else
+    {
+        qDebug() << "DIM";
+        // Start checking for activity every second
+        startIdleTimer(2000);
+    }
+    qDebug() << "settingsidle tick";
 }
 

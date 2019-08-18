@@ -42,6 +42,9 @@ public:
     // Timer for scanning the driver/device list. May also be useful for periodic GUI events. Created during init(), always runs at 10FPS.
     static inline QTimer* scanTimer()       { return _kbManager ? _kbManager->_scanTimer : 0; }
 
+    // Called to restart the idle timer
+    static inline void startIdleTimer(int duration);
+
 signals:
     // A new device was connected.
     void kbConnected(Kb* device);
@@ -53,6 +56,7 @@ signals:
 
 private slots:
     void scanKeyboards();
+    void idleTimerTick();
 
 private:
     static KbManager* _kbManager;
@@ -62,6 +66,7 @@ private:
 
     QSet<Kb*> _devices;
     QTimer* _eventTimer, *_scanTimer;
+    static QTimer* _idleTimer;
 };
 
 #endif // KBMANAGER_H

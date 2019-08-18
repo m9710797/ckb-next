@@ -233,3 +233,11 @@ void KbLightWidget::startAnimationPreview(){
 void KbLightWidget::stopAnimationPreview(){
     disconnect(light, SIGNAL(frameDisplayed(const ColorMap&,const QSet<QString>&)), ui->keyWidget, SLOT(displayColorMap(const ColorMap&,const QSet<QString>&)));
 }
+
+void KbLightWidget::turnLightsOff(){
+    // Only run this if shared dimming is enabled
+    if(!light || KbLight::shareDimming() == -1)
+        return;
+}
+
+void KbLightWidget::restoreLights()
